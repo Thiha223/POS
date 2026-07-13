@@ -5,6 +5,7 @@ import {
   AlertCircle, KeyRound, RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 /* ─── Shared helpers ─────────────────────────────────────── */
 function Spinner() {
@@ -173,7 +174,6 @@ function OtpStep({
     setResent(false);
     setError('');
     // Re-trigger signUp with same email; Supabase re-sends the OTP
-    const { supabase } = await import('../lib/supabase');
     const { error } = await supabase.auth.resend({ type: 'signup', email });
     setResending(false);
     if (error) {
