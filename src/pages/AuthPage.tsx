@@ -275,30 +275,144 @@ function OtpStep({
 
 /* ─── Login Form ─────────────────────────────────────────── */
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
-  const { signIn } = useAuth();
+  const { signIn, verifySignInOtp } = useAuth();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [unverified, setUnverified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setUnverified(false);
     setLoading(true);
-    const { error } = await signIn(email, password);
-    if (error) {
-      const msg = error.message.toLowerCase();
-      if (msg.includes('email not confirmed') || msg.includes('not confirmed') || msg.includes('email_not_confirmed')) {
-        setUnverified(true);
-      } else {
-        setError(error.message);
-      }
-    }
+    const { error } = await signIn(email);
     setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setOtpSent(true);
   };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length < 6) {
+      setError('Please enter the complete 6-digit code.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    const { error } = await verifySignInOtp(email, otp);
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      setOtp('');
+      return;
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResent(false);
+    setError('');
+    const { error } = await signIn(email);
+    setResending(false);
+    if (error) {
+      setError('Could not resend code: ' + error.message);
+    } else {
+      setResent(true);
+      setTimeout(() => setResent(false), 5000);
+    }
+  };
+
+  if (otpSent) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary-600 to-accent-600 flex items-center justify-center shadow-2xl shadow-primary-600/30">
+              <KeyRound size={34} className="text-white" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-7 h-7 bg-accent-500 rounded-full flex items-center justify-center shadow-lg">
+              <MailCheck size={13} className="text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center mb-2">
+          <h2 className="text-2xl font-bold text-white">Enter verification code</h2>
+          <p className="text-slate-400 mt-1 font-myanmar text-sm">အတည်ပြုကုဒ် ထည့်သွင်းပါ</p>
+        </div>
+
+        <div className="flex justify-center mb-5">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600/10 border border-primary-600/30 rounded-xl">
+            <Mail size={13} className="text-primary-400 shrink-0" />
+            <span className="text-primary-300 font-semibold text-sm break-all">{email}</span>
+          </div>
+        </div>
+
+        <p className="text-slate-400 text-sm text-center mb-6 leading-relaxed">
+          We sent a <span className="text-white font-semibold">6-digit verification code</span> to your email.
+          <br />
+          <span className="text-xs font-myanmar text-slate-500 mt-1 block">
+            ၆-လုံး ကုဒ်နံပါတ်ကို အောက်တွင် ထည့်သွင်းပါ
+          </span>
+        </p>
+
+        {error && <ErrorBanner msg={error} />}
+
+        {resent && (
+          <div className="mb-4 p-3 bg-accent-600/10 border border-accent-600/30 rounded-xl flex items-center gap-2 text-accent-400 text-sm">
+            <CheckCircle size={15} className="shrink-0" />
+            New code sent! Check your inbox.
+          </div>
+        )}
+
+        <form onSubmit={handleVerify} className="space-y-6">
+          <OtpInput value={otp} onChange={setOtp} />
+
+          <button
+            type="submit"
+            disabled={loading || otp.length < 6}
+            className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <><Spinner />Verifying...</>
+            ) : (
+              <><CheckCircle size={16} />Sign In</>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-5 flex items-center justify-between text-sm">
+          <button
+            type="button"
+            onClick={() => { setOtpSent(false); setOtp(''); setError(''); }}
+            className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Change email
+          </button>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            className="flex items-center gap-1.5 text-primary-400 hover:text-primary-300 transition-colors disabled:opacity-50"
+          >
+            {resending ? <Spinner /> : <RefreshCw size={13} />}
+            Resend code
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-4">
+          Check your spam folder if you don't see it within a minute.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -307,28 +421,9 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <p className="text-slate-400 mt-1 font-myanmar text-sm">သင်၏အကောင့်သို့ ဝင်ရောက်ပါ</p>
       </div>
 
-      {unverified && (
-        <div className="mb-4 p-4 bg-amber-600/10 border border-amber-600/30 rounded-xl">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-600/20 flex items-center justify-center shrink-0 mt-0.5">
-              <MailCheck size={15} className="text-amber-400" />
-            </div>
-            <div>
-              <p className="text-amber-300 text-sm font-semibold">Email not verified</p>
-              <p className="text-amber-400/80 text-xs mt-1 leading-relaxed">
-                Please check your inbox and enter the 6-digit code to verify your account first.
-              </p>
-              <p className="text-xs font-myanmar text-amber-500/70 mt-1">
-                ၆-လုံး ကုဒ်ဖြင့် အကောင့်ကို အတည်ပြုပါ
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {error && <ErrorBanner msg={error} />}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSendCode} className="space-y-4">
         <div>
           <label className="label">Email Address</label>
           <div className="relative">
@@ -336,35 +431,16 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             <input
               type="email"
               value={email}
-              onChange={e => { setEmail(e.target.value); setUnverified(false); }}
+              onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               className="input-field pl-9"
-              required
+              required autoFocus
             />
-          </div>
-        </div>
-        <div>
-          <label className="label">Password</label>
-          <div className="relative">
-            <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type={showPass ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="input-field pl-9 pr-10"
-              required
-              minLength={6}
-            />
-            <button type="button" onClick={() => setShowPass(!showPass)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
-              {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
           </div>
         </div>
         <button type="submit" disabled={loading}
           className="btn-primary w-full py-3 text-base mt-2 flex items-center justify-center gap-2">
-          {loading ? <><Spinner />Signing in...</> : 'Sign In'}
+          {loading ? <><Spinner />Sending code...</> : <><Mail size={16} />Send Login Code</>}
         </button>
       </form>
 
